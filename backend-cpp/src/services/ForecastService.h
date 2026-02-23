@@ -22,4 +22,10 @@ std::vector<Forecast> getForecastsByPlace(ConnectionPool& pool,
                                            const std::string& place,
                                            const std::string& model);
 
+// Returns past forecasts (most recent fetch per valid_time) for obs comparison
+std::vector<Forecast> getForecastsHistoryByPlace(ConnectionPool& pool,
+                                                  const std::string& place,
+                                                  const std::string& model,
+                                                  int hours);
+
 } // namespace weather::services

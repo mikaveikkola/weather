@@ -38,3 +38,28 @@ async def get_forecasts(
         fetched_at=fetched_at,
         data=[ForecastRead.model_validate(f) for f in forecasts],
     )
+
+
+@router.get("/history", response_model=ForecastResponse)
+async def get_forecasts_history(
+    place: str = Query(..., description="Place name (e.g. Helsinki)"),
+    model: str = Query("harmonie", pattern="^(harmonie|ecmwf)$"),
+    hours: int = Query(48, ge=1, le=96),
+    db: AsyncSession = Depends(get_db),
+):
+    """Past forecasts for comparison with observations.
+
+    Returns the most recently-made forecast for each valid_time in the past
+    `hours` hours (default 48).  Useful for comparing forecasts against actual
+    observations.
+    """
+    forecasts = await forecast_service.get_forecasts_history_by_place(
+        db, place, model, hours
+    )
+    fetched_at = forecasts[0].fetched_at if forecasts else None
+    return ForecastResponse(
+        station=None,
+        model=model,
+        fetched_at=fetched_at,
+        data=[ForecastRead.model_validate(f) for f in forecasts],
+    )

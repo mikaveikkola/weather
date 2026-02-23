@@ -23,3 +23,15 @@ export async function fetchForecastByPlace(
   })
   return data
 }
+
+export async function fetchForecastHistory(
+  client: AxiosInstance,
+  place: string,
+  model = 'harmonie',
+  hours = 48,
+): Promise<ForecastResponse> {
+  const { data } = await client.get<ForecastResponse>('/forecasts/history', {
+    params: { place, model, hours },
+  })
+  return data
+}

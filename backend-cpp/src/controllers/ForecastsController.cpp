@@ -63,4 +63,47 @@ void ForecastsController::getForecasts(
     }
 }
 
+void ForecastsController::getForecastsHistory(
+    const drogon::HttpRequestPtr& req,
+    std::function<void(const drogon::HttpResponsePtr&)>&& callback)
+{
+    auto place = req->getParameter("place");
+    auto model = req->getParameter("model");
+    if (model.empty()) model = "harmonie";
+
+    int hours = 48;
+    auto hoursStr = req->getParameter("hours");
+    if (!hoursStr.empty()) {
+        try { hours = std::stoi(hoursStr); } catch (...) {}
+    }
+
+    if (place.empty()) {
+        Json::Value err;
+        err["detail"] = "place is required";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
+        resp->setStatusCode(drogon::k400BadRequest);
+        callback(resp);
+        return;
+    }
+
+    try {
+        auto forecasts = services::getForecastsHistoryByPlace(getPool(), place, model, hours);
+
+        Json::Value j;
+        j["station"]    = Json::Value();
+        j["model"]      = model;
+        j["fetched_at"] = forecasts.empty() ? Json::Value() : Json::Value(forecasts[0].fetched_at);
+        Json::Value arr(Json::arrayValue);
+        for (const auto& f : forecasts) arr.append(f.toJson());
+        j["data"] = arr;
+
+        callback(drogon::HttpResponse::newHttpJsonResponse(j));
+    } catch (const std::exception& e) {
+        Json::Value err; err["detail"] = e.what();
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
+        resp->setStatusCode(drogon::k500InternalServerError);
+        callback(resp);
+    }
+}
+
 } // namespace weather

@@ -3,10 +3,11 @@ import Header from '../components/layout/Header'
 import PrecipitationChart from '../components/charts/PrecipitationChart'
 import TemperatureChart from '../components/charts/TemperatureChart'
 import WindChart from '../components/charts/WindChart'
+import ComparisonChart from '../components/weather/ComparisonChart'
 import ComparisonTable from '../components/weather/ComparisonTable'
 import ForecastTable from '../components/weather/ForecastTable'
 import WeatherCard from '../components/weather/WeatherCard'
-import { useForecastsByPlace } from '../hooks/useForecasts'
+import { useForecastsByPlace, useForecastHistory } from '../hooks/useForecasts'
 import { useObservations } from '../hooks/useObservations'
 import { useLatestObservations, useStations } from '../hooks/useStations'
 import { DEFAULT_FMISID, TIME_RANGES } from '../utils/constants'
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const selectedStation = stations.find((s) => s.fmisid === selectedFmisid)
   const placeName = selectedStation?.name?.split(' ')[0] ?? null
   const { data: forecastData, isLoading: forecastLoading } = useForecastsByPlace(placeName)
+  const { data: forecastHistoryData } = useForecastHistory(placeName)
 
   const currentLatest = latestList.find((s) => s.fmisid === selectedFmisid)
 
@@ -189,13 +191,23 @@ export default function Dashboard() {
 
           {/* Comparison tab */}
           {activeTab === 'vertailu' && (
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
-              <SectionTitle>Ennuste vs. toteutunut — {placeName ?? selectedStation?.name}</SectionTitle>
-              <p className="text-xs text-gray-600 mb-4">
-                Vertaa viimeisintä Harmonie-ennustetta toteutuneisiin havaintoihin tunneittain.
-                Ero = ennuste – havainto.
-              </p>
-              <ComparisonTable observations={observations48h} forecasts={forecasts} />
+            <div className="space-y-6">
+              <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+                <SectionTitle>Graafinen vertailu — {placeName ?? selectedStation?.name}</SectionTitle>
+                <p className="text-xs text-gray-600 mb-4">
+                  Sininen viiva = havainto, oranssi katkoviiva = ennuste.
+                  Pylväät (oikea akseli) = ero: vihreä = ennuste liian matala, punainen = liian korkea.
+                </p>
+                <ComparisonChart observations={observations48h} forecasts={forecastHistoryData?.data ?? []} />
+              </div>
+
+              <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+                <SectionTitle>Taulukkovertailu</SectionTitle>
+                <p className="text-xs text-gray-600 mb-4">
+                  Ero = ennuste − havainto.
+                </p>
+                <ComparisonTable observations={observations48h} forecasts={forecastHistoryData?.data ?? []} />
+              </div>
             </div>
           )}
         </div>

@@ -125,4 +125,30 @@ std::vector<Forecast> getForecastsByPlace(ConnectionPool& pool,
     return resultToForecasts(rows);
 }
 
+std::vector<Forecast> getForecastsHistoryByPlace(ConnectionPool& pool,
+                                                  const std::string& place,
+                                                  const std::string& model,
+                                                  int hours)
+{
+    auto conn = pool.acquire();
+    pqxx::work txn(conn.get());
+
+    auto rows = txn.exec_params(
+        std::string("SELECT DISTINCT ON (valid_time) ") +
+        "  id, "
+        "  to_char(fetched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS fetched_at,"
+        "  to_char(valid_time  AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS valid_time,"
+        "  fmisid, place_name, latitude, longitude, model,"
+        "  temperature, wind_speed, wind_direction, wind_gust, precipitation_1h,"
+        "  humidity, pressure, cloud_cover, dew_point, weather_symbol "
+        "FROM forecasts "
+        "WHERE place_name = $1 AND model = $2 "
+        "  AND valid_time >= NOW() - ($3 || ' hours')::INTERVAL "
+        "  AND valid_time <= NOW() "
+        "ORDER BY valid_time, fetched_at DESC",
+        place, model, hours
+    );
+    return resultToForecasts(rows);
+}
+
 } // namespace weather::services
