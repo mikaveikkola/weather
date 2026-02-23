@@ -3,6 +3,7 @@ import Header from '../components/layout/Header'
 import PrecipitationChart from '../components/charts/PrecipitationChart'
 import TemperatureChart from '../components/charts/TemperatureChart'
 import WindChart from '../components/charts/WindChart'
+import ComparisonTable from '../components/weather/ComparisonTable'
 import ForecastTable from '../components/weather/ForecastTable'
 import WeatherCard from '../components/weather/WeatherCard'
 import { useForecastsByPlace } from '../hooks/useForecasts'
@@ -11,7 +12,7 @@ import { useLatestObservations, useStations } from '../hooks/useStations'
 import { DEFAULT_FMISID, TIME_RANGES } from '../utils/constants'
 import { formatTemp } from '../utils/formatters'
 
-type Tab = 'havainnot' | 'ennuste'
+type Tab = 'havainnot' | 'ennuste' | 'vertailu'
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -38,6 +39,8 @@ export default function Dashboard() {
   const { data: stations = [], isLoading: stationsLoading } = useStations()
   const { data: latestList = [] } = useLatestObservations()
   const { data: obsData, isLoading: obsLoading } = useObservations(selectedFmisid, selectedHours)
+  // Always fetch 48h of observations so the comparison tab has enough data
+  const { data: obs48h } = useObservations(selectedFmisid, 48)
 
   const selectedStation = stations.find((s) => s.fmisid === selectedFmisid)
   const placeName = selectedStation?.name?.split(' ')[0] ?? null
@@ -46,6 +49,8 @@ export default function Dashboard() {
   const currentLatest = latestList.find((s) => s.fmisid === selectedFmisid)
 
   const observations = obsData?.data ?? []
+  const observations48h = obs48h?.data ?? []
+  const forecasts = forecastData?.data ?? []
 
   // Summary from chart data
   const temps = observations.map((d) => d.temperature).filter((t) => t != null) as number[]
@@ -60,6 +65,12 @@ export default function Dashboard() {
       </div>
     )
   }
+
+  const TABS: { id: Tab; label: string }[] = [
+    { id: 'havainnot', label: '📊 Havainnot' },
+    { id: 'ennuste',   label: '🔮 Ennuste' },
+    { id: 'vertailu',  label: '⚖️ Vertailu' },
+  ]
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -95,17 +106,17 @@ export default function Dashboard() {
         {/* Tabs */}
         <div>
           <div className="flex gap-1 mb-4 bg-gray-900 p-1 rounded-xl w-fit">
-            {(['havainnot', 'ennuste'] as Tab[]).map((tab) => (
+            {TABS.map((tab) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-                  activeTab === tab
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === tab.id
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
                 }`}
               >
-                {tab === 'havainnot' ? '📊 Havainnot' : '🔮 Ennuste'}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -113,7 +124,6 @@ export default function Dashboard() {
           {/* Observations tab */}
           {activeTab === 'havainnot' && (
             <div className="space-y-6">
-              {/* Time range selector */}
               <div className="flex gap-2 flex-wrap">
                 {TIME_RANGES.map((range) => (
                   <button
@@ -142,12 +152,10 @@ export default function Dashboard() {
                     <SectionTitle>Lämpötila</SectionTitle>
                     <TemperatureChart data={observations} showDewPoint />
                   </div>
-
                   <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
                     <SectionTitle>Sademäärä & lumi</SectionTitle>
                     <PrecipitationChart data={observations} />
                   </div>
-
                   <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
                     <SectionTitle>Tuuli</SectionTitle>
                     <WindChart data={observations} />
@@ -176,6 +184,18 @@ export default function Dashboard() {
                   <ForecastTable data={forecastData.data} />
                 </>
               )}
+            </div>
+          )}
+
+          {/* Comparison tab */}
+          {activeTab === 'vertailu' && (
+            <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+              <SectionTitle>Ennuste vs. toteutunut — {placeName ?? selectedStation?.name}</SectionTitle>
+              <p className="text-xs text-gray-600 mb-4">
+                Vertaa viimeisintä Harmonie-ennustetta toteutuneisiin havaintoihin tunneittain.
+                Ero = ennuste – havainto.
+              </p>
+              <ComparisonTable observations={observations48h} forecasts={forecasts} />
             </div>
           )}
         </div>
