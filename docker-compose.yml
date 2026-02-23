@@ -1,0 +1,64 @@
+version: '3.9'
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-weather}
+      POSTGRES_USER: ${POSTGRES_USER:-weather}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weather}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-weather} -d ${POSTGRES_DB:-weather}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-weather}:${POSTGRES_PASSWORD:-weather}@db:5432/${POSTGRES_DB:-weather}
+      FMI_BBOX: ${FMI_BBOX:-19,59,32,71}
+      FETCH_INTERVAL_MINUTES: ${FETCH_INTERVAL_MINUTES:-10}
+      FORECAST_INTERVAL_MINUTES: ${FORECAST_INTERVAL_MINUTES:-60}
+      DEFAULT_PLACES: ${DEFAULT_PLACES:-Helsinki,Tampere,Turku,Oulu,Rovaniemi}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend-cpp:
+    build: ./backend-cpp
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-weather}
+      DB_USER: ${POSTGRES_USER:-weather}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-weather}
+      FMI_BBOX: ${FMI_BBOX:-19,59,32,71}
+      FETCH_INTERVAL_MINUTES: ${FETCH_INTERVAL_MINUTES:-10}
+      FORECAST_INTERVAL_MINUTES: ${FORECAST_INTERVAL_MINUTES:-60}
+      DEFAULT_PLACES: ${DEFAULT_PLACES:-Helsinki,Tampere,Turku,Oulu,Rovaniemi}
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
